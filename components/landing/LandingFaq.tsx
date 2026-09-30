@@ -1,40 +1,23 @@
-/* ============================================================
-   LANDING FAQ (Server Component)
-   ------------------------------------------------------------
-   • Receives the FAQ list via PROPS.
-   • DaisyUI: uses the `collapse` component (checkbox-based
-     accordion) so the open/close behavior works WITHOUT any
-     custom JavaScript — that is the DaisyUI replacement for the
-     reference HTML's toggleFaq() script.
-   ============================================================ */
+"use client";
 
-export type LandingFaq = {
-  question: string;
-  answer: string;
-};
+import { useState } from "react";
 
-type LandingFaqProps = {
-  titleTop: string;
-  titleBottom: string;
-  intro: string;
-  faqs: LandingFaq[];
-};
+export type Faq = { question: string; answer: string; };
 
-export default function LandingFaq({
-  titleTop,
-  titleBottom,
-  intro,
-  faqs,
-}: LandingFaqProps) {
+type LandingFaqProps = { titleTop: string; titleBottom: string; intro: string; faqs: Faq[];};
+
+export default function LandingFaq({ titleTop, titleBottom, intro, faqs }: LandingFaqProps) {
+  
+  const [openIndex, setOpenIndex] = useState(-1);
+
   return (
-    <section id="faq" className="bg-white py-20 md:py-28">
-      <div className="mx-auto grid max-w-6xl gap-12 px-6 md:grid-cols-[0.7fr_1.3fr]">
-        {/* Left column: heading */}
+    <section id="faq" className="bg-[#f3f1eb] py-20 md:py-28">
+      <div className="mx-auto grid max-w-6xl gap-10 px-6 md:grid-cols-[1fr_1.4fr]">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-dwellix-500">
-            FAQs
+            Questions, answered
           </p>
-          <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">
+          <h2 className="mt-3 text-4xl font-bold tracking-tight text-gray-900 md:text-6xl">
             {titleTop}
             <br />
             {titleBottom}
@@ -42,23 +25,36 @@ export default function LandingFaq({
           <p className="mt-5 max-w-xs text-sm leading-7 text-gray-500">{intro}</p>
         </div>
 
-        {/* Right column: DaisyUI collapse accordion (one per question) */}
-        <div>
-          {faqs.map((faq) => (
-            <div
-              key={faq.question}
-              className="collapse collapse-arrow border-b border-base-300"
-            >
-              {/* The hidden checkbox is what DaisyUI uses to toggle the panel */}
-              <input type="checkbox" />
-              <div className="collapse-title py-5 text-sm font-semibold">
-                {faq.question}
+        <div className="flex flex-col gap-3">
+          {faqs.map((faq, index) => {
+            const isOpen = openIndex === index;
+            return (
+              <div
+                key={faq.question}
+                className="overflow-hidden rounded-lg border border-gray-200 bg-white"
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenIndex(isOpen ? -1 : index)}
+                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left text-sm font-semibold text-gray-900 transition hover:bg-gray-50"
+                >
+                  {faq.question}
+                  <span
+                    className={`shrink-0 text-lg text-dwellix-500 transition-transform ${
+                      isOpen ? "rotate-45" : ""
+                    }`}
+                  >
+                    +
+                  </span>
+                </button>
+                {isOpen && (
+                  <p className="border-t border-gray-100 px-5 py-4 text-sm leading-7 text-gray-600">
+                    {faq.answer}
+                  </p>
+                )}
               </div>
-              <div className="collapse-content text-xs leading-6 text-gray-500">
-                <p>{faq.answer}</p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

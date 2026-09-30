@@ -1,4 +1,4 @@
-import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import AdminPageHeader from "@/app/admin/components/admin/AdminPageHeader";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAdminSession } from "@/lib/adminAuth";

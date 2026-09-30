@@ -2,7 +2,6 @@ import Pusher from "pusher-js";
 
 let pusherClient: Pusher | null = null;
 
-// Reuses a single Pusher connection across all components in the browser tab.
 export function getPusherClient(): Pusher | null {
   const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
   const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;

@@ -13,7 +13,7 @@
     "pusher-js": "^8.6.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "zod": "^4.5.4"
+    "zod": "^4.6.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

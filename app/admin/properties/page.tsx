@@ -1,49 +1,14 @@
 "use client";
 
-/* ============================================================
-   ADMIN PROPERTIES PAGE — app/admin/properties/page.tsx  (CSR)
-   ------------------------------------------------------------
-   COURSE CONCEPTS (same set as Blocks/Buildings):
-   1. CSR — "use client" interactive management page
-      (course table: "Admin panel -> CSR").
-   2. REACT HOOKS — useState (lists/modal/form) + useEffect
-      (loads properties + buildings + landlords on mount to
-      feed the parent <select>s).
-   3. ZOD — full form schema (required fields, positive
-      numbers, enum choices) validated with safeParse before
-      any request. Optional number fields use a Zod
-      preprocess that turns "" into undefined. No vanilla or
-      HTML validation.
-   4. AXIOS — axios direct + NEXT_PUBLIC_API_URL (.env.local);
-      GET/POST/PATCH/DELETE with the JWT header. No fetch().
-   5. DAISYUI — table, modal, select, checkbox, alert, btn.
-   ============================================================ */
-
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { z } from "zod";
 import { authHeader } from "@/lib/getToken";
 
-type Property = {
-  id: number;
-  unit_number: string;
-  building: { id: number; name: string } | null;
-  landlord: { id: number; name: string };
-  tenant: { id: number; name: string } | null;
-  rent_amount: number | string;
-  service_charge: number | string | null;
-  has_parking: boolean;
-  parking_fee: number | string | null;
-  listing_status: string;
-  status: string;
-  created_at: string;
-};
+type Property = { id: number; unit_number: string; building: { id: number; name: string } | null; landlord: { id: number; name: string }; tenant: { id: number; name: string } | null; rent_amount: number | string; service_charge: number | string | null; has_parking: boolean; parking_fee: number | string | null; listing_status: string; status: string; created_at: string;};
 
 type IdName = { id: number; name: string };
 
-/* Zod schema mirroring the backend DTOs. Optional decimal
-   fields arrive empty from inputs -> preprocess "" to
-   undefined so they are simply omitted from the payload. */
 const optionalPositiveNumber = z.preprocess(
   (value) => (value === "" || value === null ? undefined : value),
   z.coerce.number().positive("Must be a positive number").optional(),
@@ -63,9 +28,6 @@ const propertySchema = z.object({
   status: z.enum(["vacant", "occupied", "sold"]),
 });
 
-/* The form state keeps raw input values (strings for number
-   inputs). The Zod schema's z.coerce converts them to numbers
-   during safeParse — state and schema stay decoupled. */
 type PropertyFormState = {
   unit_number: string;
   buildingId: number | string;
@@ -91,15 +53,20 @@ const EMPTY_FORM: PropertyFormState = {
   status: "vacant",
 };
 
+function statusBadgeClass(status: string): string {
+  if (status === "occupied") return "bg-green-100 text-green-700";
+  if (status === "sold") return "bg-blue-100 text-blue-700";
+  return "bg-amber-100 text-amber-700";
+}
+
 export default function AdminPropertiesPage() {
-  // ----- list + parent-option state -----
+
   const [properties, setProperties] = useState<Property[]>([]);
   const [buildings, setBuildings] = useState<IdName[]>([]);
   const [landlords, setLandlords] = useState<IdName[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // ----- modal + form state -----
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<PropertyFormState>(EMPTY_FORM);
@@ -108,8 +75,6 @@ export default function AdminPropertiesPage() {
   const [deleteTarget, setDeleteTarget] = useState<Property | null>(null);
   const [banner, setBanner] = useState("");
 
-  /* useEffect: load properties + buildings + landlords once.
-     The latter two feed the parent selects in the form. */
   useEffect(() => {
     fetchProperties();
     fetchBuildings();
@@ -196,7 +161,6 @@ export default function AdminPropertiesPage() {
     setFieldErrors({});
   }
 
-  // Controlled inputs (useState) for text/select inputs.
   function handleInputChange(
     event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) {
@@ -204,12 +168,10 @@ export default function AdminPropertiesPage() {
     setForm((previous) => ({ ...previous, [name]: value }));
   }
 
-  // Separate handler for the checkbox (boolean instead of string).
   function handleParkingChange(event: React.ChangeEvent<HTMLInputElement>) {
     setForm((previous) => ({ ...previous, has_parking: event.target.checked }));
   }
 
-  /* Zod validates first; only valid data reaches the backend. */
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBanner("");
@@ -281,10 +243,9 @@ export default function AdminPropertiesPage() {
     }
   }
 
-  // Small display helpers for money fields (they arrive as strings).
   function money(value: number | string | null | undefined): string {
     if (value === null || value === undefined || value === "") return "-";
-    return `৳${Number(value).toLocaleString()}`;
+    return `${Number(value).toLocaleString()}`;
   }
 
   return (
@@ -297,7 +258,7 @@ export default function AdminPropertiesPage() {
           </p>
         </div>
         <button
-          className="btn btn-primary btn-sm"
+          className="rounded-md bg-dwellix-500 px-4 py-2 text-sm font-medium text-white hover:bg-dwellix-600 disabled:cursor-not-allowed disabled:opacity-50"
           onClick={openCreateModal}
           disabled={buildings.length === 0 || landlords.length === 0}
         >
@@ -306,91 +267,84 @@ export default function AdminPropertiesPage() {
       </div>
 
       {(buildings.length === 0 || landlords.length === 0) && !loading && (
-        <div className="alert border-base-300 bg-white shadow-sm">
-          <span className="text-sm text-warning">
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <span className="text-sm text-amber-600">
             You need at least one building and one landlord before creating a property.
           </span>
         </div>
       )}
 
       {banner && (
-        <div className="alert border-base-300 bg-white shadow-sm">
-          <span className="text-sm text-success">{banner}</span>
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <span className="text-sm text-green-600">{banner}</span>
         </div>
       )}
 
       {loading ? (
-        <div className="card border border-base-300 bg-white shadow-sm">
-          <div className="card-body space-y-3">
-            <div className="h-4 w-40 animate-pulse rounded bg-base-300" />
-            <div className="h-4 w-full animate-pulse rounded bg-base-300" />
-          </div>
+        <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="h-4 w-40 animate-pulse rounded bg-gray-200" />
+          <div className="h-4 w-full animate-pulse rounded bg-gray-200" />
         </div>
       ) : error ? (
-        <div className="alert border-base-300 bg-white shadow-sm">
-          <span className="text-sm text-error">{error}</span>
-          <button className="btn btn-xs" onClick={fetchProperties}>
+        <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <span className="text-sm text-red-600">{error}</span>
+          <button
+            className="rounded-md px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+            onClick={fetchProperties}
+          >
             Retry
           </button>
         </div>
       ) : properties.length === 0 ? (
-        <div className="card border border-base-300 bg-white shadow-sm">
-          <div className="card-body items-center text-center">
-            <p className="text-sm text-gray-500">No properties created yet.</p>
-          </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
+          <p className="text-sm text-gray-500">No properties created yet.</p>
         </div>
       ) : (
-        <div className="card border border-base-300 bg-white shadow-sm">
+        <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="table">
+            <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="text-xs uppercase text-gray-500">
-                  <th>Unit</th>
-                  <th>Building</th>
-                  <th>Landlord</th>
-                  <th>Tenant</th>
-                  <th>Rent</th>
-                  <th>Status</th>
-                  <th>Listing</th>
-                  <th className="text-right">Actions</th>
+                <tr className="border-b border-gray-200 text-xs uppercase text-gray-500">
+                  <th className="px-4 py-3 font-semibold">Unit</th>
+                  <th className="px-4 py-3 font-semibold">Building</th>
+                  <th className="px-4 py-3 font-semibold">Landlord</th>
+                  <th className="px-4 py-3 font-semibold">Tenant</th>
+                  <th className="px-4 py-3 font-semibold">Rent</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Listing</th>
+                  <th className="px-4 py-3 text-right font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {properties.map((property) => (
-                  <tr key={property.id}>
-                    <td className="font-semibold">{property.unit_number}</td>
-                    <td className="text-sm text-gray-600">
+                  <tr key={property.id} className="border-b border-gray-100 last:border-0">
+                    <td className="px-4 py-3 font-semibold">{property.unit_number}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
                       {property.building?.name ?? "-"}
                     </td>
-                    <td className="text-sm text-gray-600">{property.landlord?.name}</td>
-                    <td className="text-sm text-gray-600">
+                    <td className="px-4 py-3 text-sm text-gray-600">{property.landlord?.name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
                       {property.tenant?.name ?? "—"}
                     </td>
-                    <td className="text-sm">{money(property.rent_amount)}</td>
-                    <td>
+                    <td className="px-4 py-3 text-sm">{money(property.rent_amount)}</td>
+                    <td className="px-4 py-3">
                       <span
-                        className={`badge badge-sm ${
-                          property.status === "occupied"
-                            ? "badge-success"
-                            : property.status === "sold"
-                              ? "badge-info"
-                              : "badge-warning"
-                        }`}
+                        className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${statusBadgeClass(property.status)}`}
                       >
                         {property.status}
                       </span>
                     </td>
-                    <td className="text-xs text-gray-500">{property.listing_status}</td>
-                    <td className="text-right">
+                    <td className="px-4 py-3 text-xs text-gray-500">{property.listing_status}</td>
+                    <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         <button
-                          className="btn btn-ghost btn-xs"
+                          className="rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
                           onClick={() => openEditModal(property)}
                         >
                           Edit
                         </button>
                         <button
-                          className="btn btn-ghost btn-xs text-error"
+                          className="rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-gray-100"
                           onClick={() => setDeleteTarget(property)}
                         >
                           Delete
@@ -405,16 +359,14 @@ export default function AdminPropertiesPage() {
         </div>
       )}
 
-      {/* Create/Edit modal (Zod-validated form) */}
       {modalOpen && (
-        <div className="modal modal-open">
-          <div className="modal-box max-w-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-lg">
             <h3 className="text-lg font-bold">
               {editingId === null ? "New Property" : "Edit Property"}
             </h3>
 
             <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-4">
-              {/* Unit + building + landlord */}
               <div className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-gray-600">
@@ -426,11 +378,11 @@ export default function AdminPropertiesPage() {
                     value={form.unit_number}
                     onChange={handleInputChange}
                     placeholder="e.g. A-101"
-                    className="input input-bordered w-full"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                     disabled={submitting}
                   />
                   {fieldErrors.unit_number && (
-                    <p className="mt-1 text-xs text-error">{fieldErrors.unit_number}</p>
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.unit_number}</p>
                   )}
                 </div>
 
@@ -442,7 +394,7 @@ export default function AdminPropertiesPage() {
                     name="buildingId"
                     value={form.buildingId}
                     onChange={handleInputChange}
-                    className="select select-bordered w-full"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                     disabled={submitting}
                   >
                     <option value={0}>Select...</option>
@@ -453,7 +405,7 @@ export default function AdminPropertiesPage() {
                     ))}
                   </select>
                   {fieldErrors.buildingId && (
-                    <p className="mt-1 text-xs text-error">{fieldErrors.buildingId}</p>
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.buildingId}</p>
                   )}
                 </div>
 
@@ -465,7 +417,7 @@ export default function AdminPropertiesPage() {
                     name="landlordId"
                     value={form.landlordId}
                     onChange={handleInputChange}
-                    className="select select-bordered w-full"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                     disabled={submitting}
                   >
                     <option value={0}>Select...</option>
@@ -476,12 +428,11 @@ export default function AdminPropertiesPage() {
                     ))}
                   </select>
                   {fieldErrors.landlordId && (
-                    <p className="mt-1 text-xs text-error">{fieldErrors.landlordId}</p>
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.landlordId}</p>
                   )}
                 </div>
               </div>
 
-              {/* Money fields + parking */}
               <div className="grid gap-4 sm:grid-cols-4">
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-gray-600">
@@ -493,11 +444,11 @@ export default function AdminPropertiesPage() {
                     value={form.rent_amount}
                     onChange={handleInputChange}
                     placeholder="e.g. 15000"
-                    className="input input-bordered w-full"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                     disabled={submitting}
                   />
                   {fieldErrors.rent_amount && (
-                    <p className="mt-1 text-xs text-error">{fieldErrors.rent_amount}</p>
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.rent_amount}</p>
                   )}
                 </div>
 
@@ -510,11 +461,11 @@ export default function AdminPropertiesPage() {
                     name="service_charge"
                     value={form.service_charge ?? ""}
                     onChange={handleInputChange}
-                    className="input input-bordered w-full"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                     disabled={submitting}
                   />
                   {fieldErrors.service_charge && (
-                    <p className="mt-1 text-xs text-error">{fieldErrors.service_charge}</p>
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.service_charge}</p>
                   )}
                 </div>
 
@@ -527,19 +478,19 @@ export default function AdminPropertiesPage() {
                     name="parking_fee"
                     value={form.parking_fee ?? ""}
                     onChange={handleInputChange}
-                    className="input input-bordered w-full"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                     disabled={submitting}
                   />
                   {fieldErrors.parking_fee && (
-                    <p className="mt-1 text-xs text-error">{fieldErrors.parking_fee}</p>
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.parking_fee}</p>
                   )}
                 </div>
 
                 <div className="flex items-end pb-2">
-                  <label className="label cursor-pointer gap-2">
+                  <label className="flex cursor-pointer items-center gap-2">
                     <input
                       type="checkbox"
-                      className="checkbox checkbox-sm checkbox-primary"
+                      className="h-4 w-4 rounded border-gray-300 text-dwellix-500 focus:ring-dwellix-500"
                       checked={form.has_parking}
                       onChange={handleParkingChange}
                       disabled={submitting}
@@ -551,7 +502,6 @@ export default function AdminPropertiesPage() {
                 </div>
               </div>
 
-              {/* Enums */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-gray-600">
@@ -561,7 +511,7 @@ export default function AdminPropertiesPage() {
                     name="listing_status"
                     value={form.listing_status}
                     onChange={handleInputChange}
-                    className="select select-bordered w-full"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                     disabled={submitting}
                   >
                     <option value="not_listed">not_listed</option>
@@ -569,7 +519,7 @@ export default function AdminPropertiesPage() {
                     <option value="for_sale">for_sale</option>
                   </select>
                   {fieldErrors.listing_status && (
-                    <p className="mt-1 text-xs text-error">{fieldErrors.listing_status}</p>
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.listing_status}</p>
                   )}
                 </div>
 
@@ -581,7 +531,7 @@ export default function AdminPropertiesPage() {
                     name="status"
                     value={form.status}
                     onChange={handleInputChange}
-                    className="select select-bordered w-full"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                     disabled={submitting}
                   >
                     <option value="vacant">vacant</option>
@@ -589,21 +539,25 @@ export default function AdminPropertiesPage() {
                     <option value="sold">sold</option>
                   </select>
                   {fieldErrors.status && (
-                    <p className="mt-1 text-xs text-error">{fieldErrors.status}</p>
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.status}</p>
                   )}
                 </div>
               </div>
 
-              <div className="modal-action">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  className="btn btn-ghost btn-sm"
+                  className="rounded-md px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                   onClick={closeModal}
                   disabled={submitting}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-dwellix-500 px-4 py-2 text-sm font-medium text-white hover:bg-dwellix-600 disabled:opacity-50"
+                  disabled={submitting}
+                >
                   {submitting ? "Saving..." : editingId === null ? "Create" : "Save changes"}
                 </button>
               </div>
@@ -612,23 +566,26 @@ export default function AdminPropertiesPage() {
         </div>
       )}
 
-      {/* Delete confirmation modal */}
       {deleteTarget && (
-        <div className="modal modal-open">
-          <div className="modal-box max-w-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg">
             <h3 className="text-lg font-bold">Delete property?</h3>
             <p className="mt-2 text-sm text-gray-500">
               Unit &quot;{deleteTarget.unit_number}&quot; will be removed permanently.
             </p>
-            <div className="modal-action">
+            <div className="mt-4 flex justify-end gap-2">
               <button
-                className="btn btn-ghost btn-sm"
+                className="rounded-md px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                 onClick={() => setDeleteTarget(null)}
                 disabled={submitting}
               >
                 Cancel
               </button>
-              <button className="btn btn-error btn-sm" onClick={handleDelete} disabled={submitting}>
+              <button
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                onClick={handleDelete}
+                disabled={submitting}
+              >
                 {submitting ? "Deleting..." : "Delete"}
               </button>
             </div>

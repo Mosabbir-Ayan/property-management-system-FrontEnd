@@ -1,6 +1,3 @@
-// Client components can't use next/headers (server-only), so this reads
-// the same two cookies your dashboard already sets, from the browser.
-
 export function getClientToken(): string | undefined {
   if (typeof document === "undefined") return undefined;
   const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/);
@@ -22,7 +19,6 @@ export function setClientUser(user: any) {
   document.cookie = `user=${encodeURIComponent(JSON.stringify(user))}; path=/`;
 }
 
-// Every page calls this: api.get(url, { headers: authHeader() })
 export function authHeader() {
   const token = getClientToken();
   return token ? { Authorization: `Bearer ${token}` } : {};

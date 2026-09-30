@@ -1,4 +1,4 @@
-import AdminStatSkeleton from "@/components/admin/AdminStatSkeleton";
+import AdminStatSkeleton from "@/app/admin/components/admin/AdminStatSkeleton";
 
 /* ============================================================
    loading.tsx — app/admin/complaints/[id]/loading.tsx

@@ -1,37 +1,13 @@
 "use client";
 
-/* ============================================================
-   ADMIN BUILDINGS PAGE — app/admin/buildings/page.tsx  (CSR)
-   ------------------------------------------------------------
-   COURSE CONCEPTS (same set as the Blocks page):
-   1. CSR — "use client" interactive management page
-      (course table: "Admin panel -> CSR").
-   2. REACT HOOKS — useState (list/modal/form) + useEffect
-      (initial load of buildings AND blocks for the parent
-      select — two Axios calls on mount).
-   3. ZOD — form schema (name required; blockId must be a
-      number) validated with safeParse before any request.
-   4. AXIOS — axios direct + NEXT_PUBLIC_API_URL (.env.local);
-      POST/PATCH/DELETE/GET with the JWT header. No fetch().
-   5. DAISYUI — table, modal, select, alert, btn.
-   ============================================================ */
-
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { z } from "zod";
 import { authHeader } from "@/lib/getToken";
 
-type Building = {
-  id: number;
-  name: string;
-  created_at: string;
-  block: { id: number; name: string };
-};
-
+type Building = { id: number; name: string; created_at: string; block: { id: number; name: string };};
 type BlockOption = { id: number; name: string };
 
-/* Zod schema mirroring the backend DTO: name (string) +
-   blockId (the parent block, a number — from the select). */
 const buildingSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name is too long"),
   blockId: z.coerce.number().min(1, "Please choose a block"),
@@ -41,13 +17,11 @@ type BuildingForm = z.infer<typeof buildingSchema>;
 type FieldErrors = Partial<Record<keyof BuildingForm, string>>;
 
 export default function AdminBuildingsPage() {
-  // ----- list state (loaded via useEffect) -----
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [blocks, setBlocks] = useState<BlockOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // ----- modal + form state -----
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<BuildingForm>({ name: "", blockId: 0 });
@@ -56,8 +30,6 @@ export default function AdminBuildingsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Building | null>(null);
   const [banner, setBanner] = useState("");
 
-  /* useEffect: load buildings + blocks once on mount.
-     Blocks feed the parent <select> in the form. */
   useEffect(() => {
     fetchBuildings();
     fetchBlocks();
@@ -87,7 +59,6 @@ export default function AdminBuildingsPage() {
       );
       setBlocks(response.data);
     } catch {
-      // Blocks are only needed for the form — non-fatal here.
       console.error("Could not load blocks for the select");
     }
   }
@@ -119,7 +90,6 @@ export default function AdminBuildingsPage() {
     setForm((previous) => ({ ...previous, [name]: value }));
   }
 
-  /* Zod validates first; only valid data reaches the backend. */
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBanner("");
@@ -199,7 +169,7 @@ export default function AdminBuildingsPage() {
           </p>
         </div>
         <button
-          className="btn btn-primary btn-sm"
+          className="rounded-md bg-dwellix-500 px-4 py-2 text-sm font-medium text-white hover:bg-dwellix-600 disabled:cursor-not-allowed disabled:opacity-50"
           onClick={openCreateModal}
           disabled={blocks.length === 0}
         >
@@ -208,73 +178,72 @@ export default function AdminBuildingsPage() {
       </div>
 
       {blocks.length === 0 && !loading && (
-        <div className="alert border-base-300 bg-white shadow-sm">
-          <span className="text-sm text-warning">
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <span className="text-sm text-amber-600">
             You need at least one block before creating a building.
           </span>
         </div>
       )}
 
       {banner && (
-        <div className="alert border-base-300 bg-white shadow-sm">
-          <span className="text-sm text-success">{banner}</span>
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <span className="text-sm text-green-600">{banner}</span>
         </div>
       )}
 
       {loading ? (
-        <div className="card border border-base-300 bg-white shadow-sm">
-          <div className="card-body space-y-3">
-            <div className="h-4 w-40 animate-pulse rounded bg-base-300" />
-            <div className="h-4 w-full animate-pulse rounded bg-base-300" />
-          </div>
+        <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="h-4 w-40 animate-pulse rounded bg-gray-200" />
+          <div className="h-4 w-full animate-pulse rounded bg-gray-200" />
         </div>
       ) : error ? (
-        <div className="alert border-base-300 bg-white shadow-sm">
-          <span className="text-sm text-error">{error}</span>
-          <button className="btn btn-xs" onClick={fetchBuildings}>
+        <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <span className="text-sm text-red-600">{error}</span>
+          <button
+            className="rounded-md px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+            onClick={fetchBuildings}
+          >
             Retry
           </button>
         </div>
       ) : buildings.length === 0 ? (
-        <div className="card border border-base-300 bg-white shadow-sm">
-          <div className="card-body items-center text-center">
-            <p className="text-sm text-gray-500">No buildings created yet.</p>
-          </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
+          <p className="text-sm text-gray-500">No buildings created yet.</p>
         </div>
       ) : (
-        <div className="card border border-base-300 bg-white shadow-sm">
+        <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="table">
+            <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="text-xs uppercase text-gray-500">
-                  <th>Name</th>
-                  <th>Block</th>
-                  <th>Created</th>
-                  <th className="text-right">Actions</th>
+                <tr className="border-b border-gray-200 text-xs uppercase text-gray-500">
+                  <th className="px-4 py-3 font-semibold">Name</th>
+                  <th className="px-4 py-3 font-semibold">Block</th>
+                  <th className="px-4 py-3 font-semibold">Created</th>
+                  <th className="px-4 py-3 text-right font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {buildings.map((building) => (
-                  <tr key={building.id}>
-                    <td className="font-semibold">{building.name}</td>
-                    <td>
-                      <span className="badge badge-ghost badge-sm">
+                  <tr key={building.id} className="border-b border-gray-100 last:border-0">
+                    <td className="px-4 py-3 font-semibold">{building.name}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
                         {building.block?.name ?? "-"}
                       </span>
                     </td>
-                    <td className="text-xs text-gray-500">
+                    <td className="px-4 py-3 text-xs text-gray-500">
                       {new Date(building.created_at).toLocaleDateString()}
                     </td>
-                    <td className="text-right">
+                    <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         <button
-                          className="btn btn-ghost btn-xs"
+                          className="rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
                           onClick={() => openEditModal(building)}
                         >
                           Edit
                         </button>
                         <button
-                          className="btn btn-ghost btn-xs text-error"
+                          className="rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-gray-100"
                           onClick={() => setDeleteTarget(building)}
                         >
                           Delete
@@ -289,10 +258,9 @@ export default function AdminBuildingsPage() {
         </div>
       )}
 
-      {/* Create/Edit modal (Zod-validated form) */}
       {modalOpen && (
-        <div className="modal modal-open">
-          <div className="modal-box max-w-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
             <h3 className="text-lg font-bold">
               {editingId === null ? "New Building" : "Edit Building"}
             </h3>
@@ -306,7 +274,7 @@ export default function AdminBuildingsPage() {
                   name="blockId"
                   value={form.blockId}
                   onChange={handleInputChange}
-                  className="select select-bordered w-full"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                   disabled={submitting}
                 >
                   <option value={0}>Select a block...</option>
@@ -317,7 +285,7 @@ export default function AdminBuildingsPage() {
                   ))}
                 </select>
                 {fieldErrors.blockId && (
-                  <p className="mt-1 text-xs text-error">{fieldErrors.blockId}</p>
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.blockId}</p>
                 )}
               </div>
 
@@ -331,24 +299,28 @@ export default function AdminBuildingsPage() {
                   value={form.name}
                   onChange={handleInputChange}
                   placeholder="e.g. Building 1"
-                  className="input input-bordered w-full"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                   disabled={submitting}
                 />
                 {fieldErrors.name && (
-                  <p className="mt-1 text-xs text-error">{fieldErrors.name}</p>
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.name}</p>
                 )}
               </div>
 
-              <div className="modal-action">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  className="btn btn-ghost btn-sm"
+                  className="rounded-md px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                   onClick={closeModal}
                   disabled={submitting}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-dwellix-500 px-4 py-2 text-sm font-medium text-white hover:bg-dwellix-600 disabled:opacity-50"
+                  disabled={submitting}
+                >
                   {submitting ? "Saving..." : editingId === null ? "Create" : "Save changes"}
                 </button>
               </div>
@@ -357,23 +329,26 @@ export default function AdminBuildingsPage() {
         </div>
       )}
 
-      {/* Delete confirmation modal */}
       {deleteTarget && (
-        <div className="modal modal-open">
-          <div className="modal-box max-w-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg">
             <h3 className="text-lg font-bold">Delete building?</h3>
             <p className="mt-2 text-sm text-gray-500">
               &quot;{deleteTarget.name}&quot; will be removed permanently.
             </p>
-            <div className="modal-action">
+            <div className="mt-4 flex justify-end gap-2">
               <button
-                className="btn btn-ghost btn-sm"
+                className="rounded-md px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                 onClick={() => setDeleteTarget(null)}
                 disabled={submitting}
               >
                 Cancel
               </button>
-              <button className="btn btn-error btn-sm" onClick={handleDelete} disabled={submitting}>
+              <button
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                onClick={handleDelete}
+                disabled={submitting}
+              >
                 {submitting ? "Deleting..." : "Delete"}
               </button>
             </div>

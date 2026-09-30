@@ -1,84 +1,61 @@
-/* ============================================================
-   LANDING FOOTER (Server Component)
-   ------------------------------------------------------------
-   • Presentational Server Component — all texts arrive via PROPS.
-   • Visual design follows dwellix_landing_page_v4.html: dark
-     footer, link columns, giant orange "Dwellix" wordmark.
-   ============================================================ */
+type FooterLink = { label: string; href: string;};
 
-type LandingFooterProps = {
-  brand: string;
-  tagline: string;
-  accessTitle: string;
-  accessLinks: { label: string; href: string }[];
-  supportTitle: string;
-  supportEmail: string;
-  copyright: string;
-  wordmark: string;
-};
+type LandingFooterProps = { brand: string; tagline: string; accessTitle: string; accessLinks: FooterLink[]; supportTitle: string; supportEmail: string; copyright: string; wordmark: string;};
 
-export default function LandingFooter({
-  brand,
-  tagline,
-  accessTitle,
-  accessLinks,
-  supportTitle,
-  supportEmail,
-  copyright,
-  wordmark,
-}: LandingFooterProps) {
+export default function LandingFooter({ brand, tagline, accessTitle, accessLinks, supportTitle, supportEmail, copyright, wordmark,}: LandingFooterProps) {
+  
   return (
-    <footer className="bg-[#252524] pb-8 pt-16 text-gray-400">
-      <div className="mx-auto max-w-6xl px-6">
-        {/* Top grid: brand + link columns */}
-        <div className="grid gap-10 border-b border-white/10 pb-12 md:grid-cols-[1.5fr_1fr_1fr]">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <span className="grid h-9 w-9 place-items-center rounded-lg bg-dwellix-500 font-bold text-white">
-                D
-              </span>
-              <span className="text-xl font-bold text-white">{brand}</span>
-            </div>
-            <p className="mt-4 max-w-sm text-[11px] leading-6">{tagline}</p>
-          </div>
+    <footer className="bg-[#1d1d1c] text-white">
+      <div className="mx-auto grid max-w-6xl gap-10 px-6 py-14 md:grid-cols-[2fr_1fr_1fr]">
+        <div>
+          <h3 className="max-w-sm text-xl font-bold leading-8">{tagline}</h3>
+          <p className="mt-4 max-w-md text-sm leading-7 text-gray-400">
+            Connect properties, people, maintenance and money through one streamlined{" "}
+            {brand} experience.
+          </p>
+        </div>
 
-          {/* Access links (props-driven list) */}
-          <div>
-            <h3 className="mb-4 text-base font-bold text-white">{accessTitle}</h3>
-            <ul className="space-y-2 text-[11px]">
-              {accessLinks.map((link) => (
-                <li key={link.href}>
-                  <a href={link.href} className="hover:text-white">
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Support column */}
-          <div>
-            <h3 className="mb-4 text-base font-bold text-white">{supportTitle}</h3>
-            <ul className="space-y-2 text-[11px]">
-              <li>
-                <a href={`mailto:${supportEmail}`} className="hover:text-white">
-                  {supportEmail}
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-500">
+            {accessTitle}
+          </p>
+          <ul className="mt-4 space-y-2 text-sm text-gray-300">
+            {accessLinks.map((link) => (
+              <li key={link.label}>
+                <a href={link.href} className="transition hover:text-white">
+                  {link.label}
                 </a>
               </li>
-            </ul>
-          </div>
+            ))}
+          </ul>
         </div>
 
-        {/* Giant orange wordmark like the reference */}
-        <p className="select-none py-10 text-center text-[18vw] font-bold leading-none tracking-tight text-dwellix-500 md:text-[150px]">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-500">
+            {supportTitle}
+          </p>
+          <ul className="mt-4 space-y-2 text-sm text-gray-300">
+            <li>
+              <a href={`mailto:${supportEmail}`} className="transition hover:text-white">
+                Contact Support
+              </a>
+            </li>
+            <li>{supportEmail}</li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="border-t border-white/10 py-6">
+        <p className="mx-auto max-w-6xl px-6 text-xs text-gray-500">{copyright}</p>
+      </div>
+
+      <div className="overflow-hidden px-6 pb-8">
+        <p
+          className="select-none text-center text-[18vw] font-black leading-none tracking-tight text-dwellix-500/90"
+          aria-hidden="true"
+        >
           {wordmark}
         </p>
-
-        {/* Bottom bar */}
-        <div className="flex flex-col gap-2 text-[10px] md:flex-row md:justify-between">
-          <p>{copyright}</p>
-          <p>Built for better property operations.</p>
-        </div>
       </div>
     </footer>
   );

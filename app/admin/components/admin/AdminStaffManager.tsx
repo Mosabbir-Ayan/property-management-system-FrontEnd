@@ -1,59 +1,13 @@
 "use client";
 
-/* ============================================================
-   ADMIN LANDLORD MANAGER — components/admin/AdminLandlordManager.tsx
-   ------------------------------------------------------------
-   COURSE CONCEPTS DEMONSTRATED IN THIS FILE:
-
-   1. SSR + CSR HYBRID — course table:
-      "Personalized dashboard -> SSR or SSR + CSR".
-      The PAGE (app/admin/landlords/page.tsx) is a Server
-      Component: it reads the admin's JWT cookie, fetches the
-      list with Axios and hands the validated data DOWN to this
-      client component as the `initialLandlords` prop. This
-      component then handles all INTERACTIVITY in the browser:
-      Add / Edit / Delete operations.
-
-   2. REACT HOOKS — useState (modal/form state, list) +
-      useEffect is not needed for the initial load (the SSR
-      data arrives via props) but the list refreshes with new
-      Axios calls after each operation.
-
-   3. ZOD VALIDATION — the Add/Edit form uses two Zod schemas:
-      createSchema (password required, min 4) and
-      updateSchema (no password) — mirroring the backend DTOs
-      (CreateLandlordDto / UpdateLandlordDto) exactly.
-      No vanilla or HTML validation.
-
-   4. AXIOS (course convention) — axios direct +
-      process.env.NEXT_PUBLIC_API_URL from .env.local:
-      POST   /admin/landlord/create
-      PATCH  /admin/landlord/update/:id
-      DELETE /admin/landlord/delete/:id
-      fetch() is never used.
-
-   5. DAISYUI — modal, input, alert, btn (table comes from the
-      reusable AdminPeopleTable component).
-   ============================================================ */
-
 import { useState } from "react";
 import axios from "axios";
 import { z } from "zod";
 import { authHeader } from "@/lib/getToken";
 import AdminPeopleTable, { type AdminPeopleRow } from "./AdminPeopleTable";
 
-// The props type mirrors the SSR data layer's AdminPerson shape.
-type Landlord = {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  status: string;
-  created_at: string;
-  created_by: { id: number; name: string } | null;
-};
+type StaffMember = { id: number; name: string; email: string; phone: string; status: string; created_at: string; created_by: { id: number; name: string } | null;};
 
-/* ---- Zod schemas (mirror the backend DTOs) ---- */
 const createSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().min(1, "Email is required").email("Enter a valid email"),
@@ -68,29 +22,25 @@ const updateSchema = z.object({
 });
 
 type CreateForm = z.infer<typeof createSchema>;
-type UpdateForm = z.infer<typeof updateSchema>;
 type FieldErrors = Partial<Record<keyof CreateForm, string>>;
 
 const EMPTY_CREATE: CreateForm = { name: "", email: "", phone: "", password: "" };
 
-export default function AdminLandlordManager({
-  initialLandlords,
+export default function AdminStaffManager({
+  initialStaff,
 }: {
-  initialLandlords: Landlord[];
+  initialStaff: StaffMember[];
 }) {
-  // List state — seeded from the SSR data (props down).
-  const [landlords, setLandlords] = useState<Landlord[]>(initialLandlords);
+  const [staff, setStaff] = useState<StaffMember[]>(initialStaff);
   const [banner, setBanner] = useState("");
 
-  // Modal + form state.
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<CreateForm>(EMPTY_CREATE);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Landlord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<StaffMember | null>(null);
 
-  // Controlled inputs (useState).
   function handleInputChange(event: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target;
     setForm((previous) => ({ ...previous, [name]: value }));
@@ -103,9 +53,9 @@ export default function AdminLandlordManager({
     setModalOpen(true);
   }
 
-  function openEditModal(landlord: Landlord) {
-    setEditingId(landlord.id);
-    setForm({ name: landlord.name, email: landlord.email, phone: landlord.phone, password: "" });
+  function openEditModal(member: StaffMember) {
+    setEditingId(member.id);
+    setForm({ name: member.name, email: member.email, phone: member.phone, password: "" });
     setFieldErrors({});
     setModalOpen(true);
   }
@@ -116,21 +66,18 @@ export default function AdminLandlordManager({
     setFieldErrors({});
   }
 
-  // Reload the list from the backend after any mutation.
   async function refresh() {
     const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/admin/landlord/alllandlord",
+      process.env.NEXT_PUBLIC_API_URL + "/admin/staff/allstaff",
       { headers: authHeader() },
     );
-    setLandlords(response.data);
+    setStaff(response.data);
   }
 
-  /* Zod validates first (create vs update schema), then Axios. */
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBanner("");
 
-    // Choose the schema: create needs a password, update does not.
     const schema = editingId === null ? createSchema : updateSchema;
     const result = schema.safeParse(form);
 
@@ -150,18 +97,18 @@ export default function AdminLandlordManager({
 
       if (editingId === null) {
         await axios.post(
-          process.env.NEXT_PUBLIC_API_URL + "/admin/landlord/create",
+          process.env.NEXT_PUBLIC_API_URL + "/admin/staff/create",
           result.data,
           { headers: authHeader() },
         );
-        setBanner("Landlord created successfully.");
+        setBanner("Staff member created successfully.");
       } else {
         await axios.patch(
-          process.env.NEXT_PUBLIC_API_URL + `/admin/landlord/update/${editingId}`,
+          process.env.NEXT_PUBLIC_API_URL + `/admin/staff/update/${editingId}`,
           result.data,
           { headers: authHeader() },
         );
-        setBanner("Landlord updated successfully.");
+        setBanner("Staff member updated successfully.");
       }
 
       closeModal();
@@ -170,7 +117,7 @@ export default function AdminLandlordManager({
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const message = error.response?.data?.message;
-        setBanner(typeof message === "string" ? message : "Could not save the landlord.");
+        setBanner(typeof message === "string" ? message : "Could not save the staff member.");
       } else {
         setBanner("Something went wrong.");
       }
@@ -184,73 +131,71 @@ export default function AdminLandlordManager({
     try {
       setSubmitting(true);
       await axios.delete(
-        process.env.NEXT_PUBLIC_API_URL + `/admin/landlord/delete/${deleteTarget.id}`,
+        process.env.NEXT_PUBLIC_API_URL + `/admin/staff/delete/${deleteTarget.id}`,
         { headers: authHeader() },
       );
-      setBanner("Landlord deleted.");
+      setBanner("Staff member deleted.");
       setDeleteTarget(null);
       await refresh();
       setTimeout(() => setBanner(""), 4000);
     } catch {
-      setBanner("Could not delete the landlord (they may still own properties).");
+      setBanner("Could not delete the staff member.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  // Map API data -> table rows (props for AdminPeopleTable).
-  const rows: AdminPeopleRow[] = landlords.map((landlord) => ({
-    id: landlord.id,
-    name: landlord.name,
-    email: landlord.email,
-    meta: landlord.phone,
-    status: landlord.status,
-    footer: `Created by ${landlord.created_by?.name ?? "admin"}`,
-    detailHref: `/admin/landlords/${landlord.id}`,
+  const rows: AdminPeopleRow[] = staff.map((member) => ({
+    id: member.id,
+    name: member.name,
+    email: member.email,
+    meta: member.phone,
+    status: member.status,
+    footer: `Created by ${member.created_by?.name ?? "admin"}`,
+    detailHref: `/admin/staff/${member.id}`,
   }));
 
   return (
     <div className="space-y-6">
-      {/* Header with the Add button */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Landlord Management</h1>
+          <h1 className="text-2xl font-bold">Staff Management</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Manage owners and their property portfolios. {landlords.length} total.
+            Manage staff members and their responsibilities. {staff.length} total.
           </p>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={openCreateModal}>
-          + Add Landlord
+        <button
+          className="rounded-md bg-dwellix-500 px-4 py-2 text-sm font-medium text-white hover:bg-dwellix-600"
+          onClick={openCreateModal}
+        >
+          + Add Staff
         </button>
       </div>
 
       {banner && (
-        <div className="alert border-base-300 bg-white shadow-sm">
-          <span className="text-sm text-success">{banner}</span>
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <span className="text-sm text-green-600">{banner}</span>
         </div>
       )}
 
-      {/* Reusable table, now with Edit/Delete handlers via props */}
       <AdminPeopleTable
         metaLabel="Phone"
         rows={rows}
-        emptyMessage="No landlords created yet."
+        emptyMessage="No staff members created yet."
         onEdit={(row) => {
-          const landlord = landlords.find((item) => item.id === row.id);
-          if (landlord) openEditModal(landlord);
+          const member = staff.find((item) => item.id === row.id);
+          if (member) openEditModal(member);
         }}
         onDelete={(row) => {
-          const landlord = landlords.find((item) => item.id === row.id);
-          if (landlord) setDeleteTarget(landlord);
+          const member = staff.find((item) => item.id === row.id);
+          if (member) setDeleteTarget(member);
         }}
       />
-
-      {/* Add/Edit modal (Zod-validated) */}
       {modalOpen && (
-        <div className="modal modal-open">
-          <div className="modal-box max-w-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
             <h3 className="text-lg font-bold">
-              {editingId === null ? "Add Landlord" : "Edit Landlord"}
+              {editingId === null ? "Add Staff" : "Edit Staff"}
             </h3>
 
             <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-4">
@@ -263,11 +208,11 @@ export default function AdminLandlordManager({
                   name="name"
                   value={form.name}
                   onChange={handleInputChange}
-                  className="input input-bordered w-full"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                   disabled={submitting}
                 />
                 {fieldErrors.name && (
-                  <p className="mt-1 text-xs text-error">{fieldErrors.name}</p>
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.name}</p>
                 )}
               </div>
 
@@ -280,11 +225,11 @@ export default function AdminLandlordManager({
                   name="email"
                   value={form.email}
                   onChange={handleInputChange}
-                  className="input input-bordered w-full"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                   disabled={submitting}
                 />
                 {fieldErrors.email && (
-                  <p className="mt-1 text-xs text-error">{fieldErrors.email}</p>
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>
                 )}
               </div>
 
@@ -297,15 +242,14 @@ export default function AdminLandlordManager({
                   name="phone"
                   value={form.phone}
                   onChange={handleInputChange}
-                  className="input input-bordered w-full"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                   disabled={submitting}
                 />
                 {fieldErrors.phone && (
-                  <p className="mt-1 text-xs text-error">{fieldErrors.phone}</p>
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p>
                 )}
               </div>
 
-              {/* Password only on CREATE (mirrors the backend DTOs) */}
               {editingId === null && (
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-gray-600">
@@ -316,25 +260,29 @@ export default function AdminLandlordManager({
                     name="password"
                     value={form.password}
                     onChange={handleInputChange}
-                    className="input input-bordered w-full"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                     disabled={submitting}
                   />
                   {fieldErrors.password && (
-                    <p className="mt-1 text-xs text-error">{fieldErrors.password}</p>
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p>
                   )}
                 </div>
               )}
 
-              <div className="modal-action">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  className="btn btn-ghost btn-sm"
+                  className="rounded-md px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                   onClick={closeModal}
                   disabled={submitting}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-dwellix-500 px-4 py-2 text-sm font-medium text-white hover:bg-dwellix-600 disabled:opacity-50"
+                  disabled={submitting}
+                >
                   {submitting ? "Saving..." : editingId === null ? "Create" : "Save changes"}
                 </button>
               </div>
@@ -343,23 +291,26 @@ export default function AdminLandlordManager({
         </div>
       )}
 
-      {/* Delete confirmation modal */}
       {deleteTarget && (
-        <div className="modal modal-open">
-          <div className="modal-box max-w-sm">
-            <h3 className="text-lg font-bold">Delete landlord?</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg">
+            <h3 className="text-lg font-bold">Delete staff member?</h3>
             <p className="mt-2 text-sm text-gray-500">
               &quot;{deleteTarget.name}&quot; will be removed permanently.
             </p>
-            <div className="modal-action">
+            <div className="mt-4 flex justify-end gap-2">
               <button
-                className="btn btn-ghost btn-sm"
+                className="rounded-md px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                 onClick={() => setDeleteTarget(null)}
                 disabled={submitting}
               >
                 Cancel
               </button>
-              <button className="btn btn-error btn-sm" onClick={handleDelete} disabled={submitting}>
+              <button
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                onClick={handleDelete}
+                disabled={submitting}
+              >
                 {submitting ? "Deleting..." : "Delete"}
               </button>
             </div>

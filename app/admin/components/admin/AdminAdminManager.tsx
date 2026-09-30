@@ -1,108 +1,88 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import axios from "axios";
 import { z } from "zod";
 import { authHeader } from "@/lib/getToken";
 
-type Block = { id: number; name: string; address: string; created_at: string; created_by: { id: number; name: string } | null;};
+type AdminUser = { id: number; name: string; email: string; created_at: string;};
 
-const blockSchema = z.object({
-  name: z.string().min(1, "Name is required").max(100, "Name must be at most 100 characters"), address: z.string().min(1, "Address is required").max(255, "Address must be at most 255 characters"),});
+const createSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().min(1, "Email is required").email("Enter a valid email"),
+  password: z.string().min(4, "Password must be at least 6 characters"),
+});
 
-type BlockForm = z.infer<typeof blockSchema>;
-type FieldErrors = Partial<Record<keyof BlockForm, string>>;
+type CreateForm = z.infer<typeof createSchema>;
+type FieldErrors = Partial<Record<keyof CreateForm, string>>;
 
-export default function AdminBlocksPage() {
-  const [blocks, setBlocks] = useState<Block[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+const EMPTY_CREATE: CreateForm = { name: "", email: "", password: "" };
+
+export default function AdminAdminManager({ initialAdmins, currentAdminId,}: {
+  initialAdmins: AdminUser[];
+  currentAdminId?: number;
+}) {
+  const [admins, setAdmins] = useState<AdminUser[]>(initialAdmins);
+  const [banner, setBanner] = useState("");
   const [keyword, setKeyword] = useState("");
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState<BlockForm>({ name: "", address: "" });
+  const [form, setForm] = useState<CreateForm>(EMPTY_CREATE);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Block | null>(null);
-  const [banner, setBanner] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
 
-  useEffect(() => {
-    fetchBlocks();
-  }, []);
-
-  async function fetchBlocks() {
-    try {
-      setLoading(true);
-      setError("");
-      const response = await axios.get(
-        process.env.NEXT_PUBLIC_API_URL + "/admin/block/allblocks",
-        { headers: authHeader() },
-      );
-      setBlocks(response.data);
-    } catch {
-      setError("Could not load blocks. Is the backend running?");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleSearch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmed = keyword.trim();
-    if (!trimmed) {
-      fetchBlocks();
-      return;
-    }
-    try {
-      setError("");
-      const response = await axios.get(
-        process.env.NEXT_PUBLIC_API_URL + "/admin/block/search",
-        { params: { keyword: trimmed }, headers: authHeader() },
-      );
-      setBlocks(response.data);
-    } catch {
-      setError("Search failed.");
-    }
+  function handleInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const { name, value } = event.target;
+    setForm((previous) => ({ ...previous, [name]: value }));
   }
 
   function openCreateModal() {
-    setEditingId(null);
-    setForm({ name: "", address: "" });
-    setFieldErrors({});
-    setModalOpen(true);
-  }
-
-  function openEditModal(block: Block) {
-    setEditingId(block.id);
-    setForm({ name: block.name, address: block.address });
+    setForm(EMPTY_CREATE);
     setFieldErrors({});
     setModalOpen(true);
   }
 
   function closeModal() {
     setModalOpen(false);
-    setEditingId(null);
     setFieldErrors({});
   }
 
-  function handleInputChange(
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) {
-    const { name, value } = event.target;
-    setForm((previous) => ({ ...previous, [name]: value }));
+  async function refresh() {
+    const response = await axios.get(process.env.NEXT_PUBLIC_API_URL + "/admin", {
+      headers: authHeader(),
+    });
+    setAdmins(response.data);
+  }
+
+  async function handleSearch(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = keyword.trim();
+    if (!trimmed) {
+      refresh();
+      return;
+    }
+    try {
+      const response = await axios.get(
+        process.env.NEXT_PUBLIC_API_URL + "/admin/search",
+        { params: { keyword: trimmed }, headers: authHeader() },
+      );
+      setAdmins(response.data);
+    } catch {
+      setBanner("Search failed.");
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBanner("");
 
-    const result = blockSchema.safeParse(form);
+    const result = createSchema.safeParse(form);
     if (!result.success) {
       const newErrors: FieldErrors = {};
       result.error.issues.forEach((issue) => {
-        const field = issue.path[0] as keyof BlockForm;
-        newErrors[field] = issue.message;
+        const field = issue.path[0] as keyof CreateForm;
+        if (field && !newErrors[field]) newErrors[field] = issue.message;
       });
       setFieldErrors(newErrors);
       return;
@@ -112,29 +92,20 @@ export default function AdminBlocksPage() {
       setSubmitting(true);
       setFieldErrors({});
 
-      if (editingId === null) {
-        await axios.post(
-          process.env.NEXT_PUBLIC_API_URL + "/admin/block/create",
-          result.data,
-          { headers: authHeader() },
-        );
-        setBanner("Block created successfully.");
-      } else {
-        await axios.patch(
-          process.env.NEXT_PUBLIC_API_URL + `/admin/block/update/${editingId}`,
-          result.data,
-          { headers: authHeader() },
-        );
-        setBanner("Block updated successfully.");
-      }
+      await axios.post(
+        process.env.NEXT_PUBLIC_API_URL + "/admin/register",
+        result.data,
+        { headers: authHeader() },
+      );
+      setBanner("Admin created successfully.");
 
       closeModal();
-      await fetchBlocks();
+      await refresh();
       setTimeout(() => setBanner(""), 4000);
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const message = error.response?.data?.message;
-        setBanner(typeof message === "string" ? message : "Could not save the block.");
+        setBanner(typeof message === "string" ? message : "Could not create the admin.");
       } else {
         setBanner("Something went wrong.");
       }
@@ -146,39 +117,36 @@ export default function AdminBlocksPage() {
   async function handleDelete() {
     if (!deleteTarget) return;
     try {
+      setSubmitting(true);
       await axios.delete(
-        process.env.NEXT_PUBLIC_API_URL + `/admin/block/delete/${deleteTarget.id}`,
+        process.env.NEXT_PUBLIC_API_URL + `/admin/${deleteTarget.id}`,
         { headers: authHeader() },
       );
-      setBanner("Block deleted.");
+      setBanner("Admin deleted.");
       setDeleteTarget(null);
-      await fetchBlocks();
+      await refresh();
       setTimeout(() => setBanner(""), 4000);
     } catch {
-      setBanner("Could not delete the block (it may have buildings attached).");
+      setBanner("Could not delete this admin.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  const visibleBlocks = blocks.filter((block) =>
-    block.name.toLowerCase().includes(keyword.trim().toLowerCase()),
-  );
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Blocks</h1>
+          <h1 className="text-2xl font-bold">Admin Management</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Top-level areas that contain buildings. {blocks.length} total.
+            Everyone with admin access. {admins.length} total.
           </p>
         </div>
         <button
           className="rounded-md bg-dwellix-500 px-4 py-2 text-sm font-medium text-white hover:bg-dwellix-600"
           onClick={openCreateModal}
         >
-          + New Block
+          + Add Admin
         </button>
       </div>
 
@@ -191,13 +159,13 @@ export default function AdminBlocksPage() {
       <form onSubmit={handleSearch} className="flex items-end gap-2">
         <div>
           <label className="mb-1 block text-xs font-semibold text-gray-600">
-            Search blocks
+            Search admins
           </label>
           <input
             type="text"
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
-            placeholder="Search by name."
+            placeholder="Search by name or email..."
             className="w-64 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500"
           />
         </div>
@@ -212,31 +180,16 @@ export default function AdminBlocksPage() {
           className="rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100"
           onClick={() => {
             setKeyword("");
-            fetchBlocks();
+            refresh();
           }}
         >
           Clear
         </button>
       </form>
 
-      {loading ? (
-        <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="h-4 w-40 animate-pulse rounded bg-gray-200" />
-          <div className="h-4 w-full animate-pulse rounded bg-gray-200" />
-        </div>
-      ) : error ? (
-        <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <span className="text-sm text-red-600">{error}</span>
-          <button
-            className="rounded-md px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
-            onClick={fetchBlocks}
-          >
-            Retry
-          </button>
-        </div>
-      ) : visibleBlocks.length === 0 ? (
+      {admins.length === 0 ? (
         <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-sm text-gray-500">No blocks match your search.</p>
+          <p className="text-sm text-gray-500">No admins found.</p>
         </div>
       ) : (
         <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -245,38 +198,35 @@ export default function AdminBlocksPage() {
               <thead>
                 <tr className="border-b border-gray-200 text-xs uppercase text-gray-500">
                   <th className="px-4 py-3 font-semibold">Name</th>
-                  <th className="px-4 py-3 font-semibold">Address</th>
-                  <th className="px-4 py-3 font-semibold">Created</th>
-                  <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                  <th className="px-4 py-3 font-semibold">Email</th>
+                  <th className="px-4 py-3 font-semibold">Joined</th>
+                  <th className="px-4 py-3 text-right font-semibold">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {visibleBlocks.map((block) => (
-                  <tr key={block.id} className="border-b border-gray-100 last:border-0">
-                    <td className="px-4 py-3 font-semibold">{block.name}</td>
-                    <td className="max-w-sm px-4 py-3 text-sm text-gray-500">{block.address}</td>
+                {admins.map((admin) => (
+                  <tr key={admin.id} className="border-b border-gray-100 last:border-0">
+                    <td className="px-4 py-3 font-semibold">
+                      {admin.name}
+                      {admin.id === currentAdminId && (
+                        <span className="ml-2 text-xs font-normal text-gray-400">(You)</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{admin.email}</td>
                     <td className="px-4 py-3 text-xs text-gray-500">
-                      {new Date(block.created_at).toLocaleDateString()}
-                      <br />
-                      <span className="text-gray-400">
-                        by {block.created_by?.name ?? "admin"}
-                      </span>
+                      {new Date(admin.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          className="rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
-                          onClick={() => openEditModal(block)}
-                        >
-                          Edit
-                        </button>
+                      {admin.id === currentAdminId ? (
+                        <span className="text-xs text-gray-400">—</span>
+                      ) : (
                         <button
                           className="rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-gray-100"
-                          onClick={() => setDeleteTarget(block)}
+                          onClick={() => setDeleteTarget(admin)}
                         >
                           Delete
                         </button>
-                      </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -289,9 +239,7 @@ export default function AdminBlocksPage() {
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
-            <h3 className="text-lg font-bold">
-              {editingId === null ? "New Block" : "Edit Block"}
-            </h3>
+            <h3 className="text-lg font-bold">Add Admin</h3>
 
             <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-4">
               <div>
@@ -303,7 +251,6 @@ export default function AdminBlocksPage() {
                   name="name"
                   value={form.name}
                   onChange={handleInputChange}
-                  placeholder="e.g. Block A"
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                   disabled={submitting}
                 />
@@ -314,19 +261,35 @@ export default function AdminBlocksPage() {
 
               <div>
                 <label className="mb-1 block text-xs font-semibold text-gray-600">
-                  Address
+                  Email
                 </label>
-                <textarea
-                  name="address"
-                  rows={3}
-                  value={form.address}
+                <input
+                  type="email"
+                  name="email"
+                  value={form.email}
                   onChange={handleInputChange}
-                  placeholder="Full address of the block"
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                   disabled={submitting}
                 />
-                {fieldErrors.address && (
-                  <p className="mt-1 text-xs text-red-600">{fieldErrors.address}</p>
+                {fieldErrors.email && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600">
+                  Password (min 6 characters)
+                </label>
+                <input
+                  type="password"
+                  name="password"
+                  value={form.password}
+                  onChange={handleInputChange}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
+                  disabled={submitting}
+                />
+                {fieldErrors.password && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p>
                 )}
               </div>
 
@@ -344,7 +307,7 @@ export default function AdminBlocksPage() {
                   className="rounded-md bg-dwellix-500 px-4 py-2 text-sm font-medium text-white hover:bg-dwellix-600 disabled:opacity-50"
                   disabled={submitting}
                 >
-                  {submitting ? "Saving..." : editingId === null ? "Create" : "Save changes"}
+                  {submitting ? "Creating..." : "Create"}
                 </button>
               </div>
             </form>
@@ -355,9 +318,9 @@ export default function AdminBlocksPage() {
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg">
-            <h3 className="text-lg font-bold">Delete block?</h3>
+            <h3 className="text-lg font-bold">Delete admin?</h3>
             <p className="mt-2 text-sm text-gray-500">
-              &quot;{deleteTarget.name}&quot; will be removed permanently.
+              &quot;{deleteTarget.name}&quot; will lose admin access permanently.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button

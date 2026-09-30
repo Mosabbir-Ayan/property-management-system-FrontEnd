@@ -1,33 +1,13 @@
 "use client";
 
-/* ============================================================
-   ADMIN STAFF MANAGER — components/admin/AdminStaffManager.tsx
-   ------------------------------------------------------------
-   Same course concepts as AdminLandlordManager (SSR + CSR
-   hybrid, useState, Zod create/update schemas mirroring the
-   backend DTOs, axios + NEXT_PUBLIC_API_URL, DaisyUI modal).
-
-   Staff-specific: CreateStaffDto = name/email/phone/password;
-   UpdateStaffDto = name/email/phone (no password).
-   ============================================================ */
-
 import { useState } from "react";
 import axios from "axios";
 import { z } from "zod";
 import { authHeader } from "@/lib/getToken";
 import AdminPeopleTable, { type AdminPeopleRow } from "./AdminPeopleTable";
 
-type StaffMember = {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  status: string;
-  created_at: string;
-  created_by: { id: number; name: string } | null;
-};
+type Landlord = { id: number; name: string; email: string; phone: string; status: string; created_at: string; created_by: { id: number; name: string } | null;};
 
-/* Zod schemas mirroring CreateStaffDto / UpdateStaffDto. */
 const createSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().min(1, "Email is required").email("Enter a valid email"),
@@ -46,12 +26,12 @@ type FieldErrors = Partial<Record<keyof CreateForm, string>>;
 
 const EMPTY_CREATE: CreateForm = { name: "", email: "", phone: "", password: "" };
 
-export default function AdminStaffManager({
-  initialStaff,
+export default function AdminLandlordManager({
+  initialLandlords,
 }: {
-  initialStaff: StaffMember[];
+  initialLandlords: Landlord[];
 }) {
-  const [staff, setStaff] = useState<StaffMember[]>(initialStaff);
+  const [landlords, setLandlords] = useState<Landlord[]>(initialLandlords);
   const [banner, setBanner] = useState("");
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -59,7 +39,7 @@ export default function AdminStaffManager({
   const [form, setForm] = useState<CreateForm>(EMPTY_CREATE);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<StaffMember | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Landlord | null>(null);
 
   function handleInputChange(event: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target;
@@ -73,9 +53,9 @@ export default function AdminStaffManager({
     setModalOpen(true);
   }
 
-  function openEditModal(member: StaffMember) {
-    setEditingId(member.id);
-    setForm({ name: member.name, email: member.email, phone: member.phone, password: "" });
+  function openEditModal(landlord: Landlord) {
+    setEditingId(landlord.id);
+    setForm({ name: landlord.name, email: landlord.email, phone: landlord.phone, password: "" });
     setFieldErrors({});
     setModalOpen(true);
   }
@@ -88,10 +68,10 @@ export default function AdminStaffManager({
 
   async function refresh() {
     const response = await axios.get(
-      process.env.NEXT_PUBLIC_API_URL + "/admin/staff/allstaff",
+      process.env.NEXT_PUBLIC_API_URL + "/admin/landlord/alllandlord",
       { headers: authHeader() },
     );
-    setStaff(response.data);
+    setLandlords(response.data);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -117,18 +97,18 @@ export default function AdminStaffManager({
 
       if (editingId === null) {
         await axios.post(
-          process.env.NEXT_PUBLIC_API_URL + "/admin/staff/create",
+          process.env.NEXT_PUBLIC_API_URL + "/admin/landlord/create",
           result.data,
           { headers: authHeader() },
         );
-        setBanner("Staff member created successfully.");
+        setBanner("Landlord created successfully.");
       } else {
         await axios.patch(
-          process.env.NEXT_PUBLIC_API_URL + `/admin/staff/update/${editingId}`,
+          process.env.NEXT_PUBLIC_API_URL + `/admin/landlord/update/${editingId}`,
           result.data,
           { headers: authHeader() },
         );
-        setBanner("Staff member updated successfully.");
+        setBanner("Landlord updated successfully.");
       }
 
       closeModal();
@@ -137,7 +117,7 @@ export default function AdminStaffManager({
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const message = error.response?.data?.message;
-        setBanner(typeof message === "string" ? message : "Could not save the staff member.");
+        setBanner(typeof message === "string" ? message : "Could not save the landlord.");
       } else {
         setBanner("Something went wrong.");
       }
@@ -151,70 +131,72 @@ export default function AdminStaffManager({
     try {
       setSubmitting(true);
       await axios.delete(
-        process.env.NEXT_PUBLIC_API_URL + `/admin/staff/delete/${deleteTarget.id}`,
+        process.env.NEXT_PUBLIC_API_URL + `/admin/landlord/delete/${deleteTarget.id}`,
         { headers: authHeader() },
       );
-      setBanner("Staff member deleted.");
+      setBanner("Landlord deleted.");
       setDeleteTarget(null);
       await refresh();
       setTimeout(() => setBanner(""), 4000);
     } catch {
-      setBanner("Could not delete the staff member.");
+      setBanner("Could not delete the landlord (they may still own properties).");
     } finally {
       setSubmitting(false);
     }
   }
 
-  const rows: AdminPeopleRow[] = staff.map((member) => ({
-    id: member.id,
-    name: member.name,
-    email: member.email,
-    meta: member.phone,
-    status: member.status,
-    footer: `Created by ${member.created_by?.name ?? "admin"}`,
-    detailHref: `/admin/staff/${member.id}`,
+  const rows: AdminPeopleRow[] = landlords.map((landlord) => ({
+    id: landlord.id,
+    name: landlord.name,
+    email: landlord.email,
+    meta: landlord.phone,
+    status: landlord.status,
+    footer: `Created by ${landlord.created_by?.name ?? "admin"}`,
+    detailHref: `/admin/landlords/${landlord.id}`,
   }));
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Staff Management</h1>
+          <h1 className="text-2xl font-bold">Landlord Management</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Manage staff members and their responsibilities. {staff.length} total.
+            Manage owners and their property portfolios. {landlords.length} total.
           </p>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={openCreateModal}>
-          + Add Staff
+        <button
+          className="rounded-md bg-dwellix-500 px-4 py-2 text-sm font-medium text-white hover:bg-dwellix-600"
+          onClick={openCreateModal}
+        >
+          + Add Landlord
         </button>
       </div>
 
       {banner && (
-        <div className="alert border-base-300 bg-white shadow-sm">
-          <span className="text-sm text-success">{banner}</span>
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <span className="text-sm text-green-600">{banner}</span>
         </div>
       )}
 
       <AdminPeopleTable
         metaLabel="Phone"
         rows={rows}
-        emptyMessage="No staff members created yet."
+        emptyMessage="No landlords created yet."
         onEdit={(row) => {
-          const member = staff.find((item) => item.id === row.id);
-          if (member) openEditModal(member);
+          const landlord = landlords.find((item) => item.id === row.id);
+          if (landlord) openEditModal(landlord);
         }}
         onDelete={(row) => {
-          const member = staff.find((item) => item.id === row.id);
-          if (member) setDeleteTarget(member);
+          const landlord = landlords.find((item) => item.id === row.id);
+          if (landlord) setDeleteTarget(landlord);
         }}
       />
 
-      {/* Add/Edit modal (Zod-validated) */}
       {modalOpen && (
-        <div className="modal modal-open">
-          <div className="modal-box max-w-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
             <h3 className="text-lg font-bold">
-              {editingId === null ? "Add Staff" : "Edit Staff"}
+              {editingId === null ? "Add Landlord" : "Edit Landlord"}
             </h3>
 
             <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-4">
@@ -227,11 +209,11 @@ export default function AdminStaffManager({
                   name="name"
                   value={form.name}
                   onChange={handleInputChange}
-                  className="input input-bordered w-full"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                   disabled={submitting}
                 />
                 {fieldErrors.name && (
-                  <p className="mt-1 text-xs text-error">{fieldErrors.name}</p>
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.name}</p>
                 )}
               </div>
 
@@ -244,11 +226,11 @@ export default function AdminStaffManager({
                   name="email"
                   value={form.email}
                   onChange={handleInputChange}
-                  className="input input-bordered w-full"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                   disabled={submitting}
                 />
                 {fieldErrors.email && (
-                  <p className="mt-1 text-xs text-error">{fieldErrors.email}</p>
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>
                 )}
               </div>
 
@@ -261,11 +243,11 @@ export default function AdminStaffManager({
                   name="phone"
                   value={form.phone}
                   onChange={handleInputChange}
-                  className="input input-bordered w-full"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                   disabled={submitting}
                 />
                 {fieldErrors.phone && (
-                  <p className="mt-1 text-xs text-error">{fieldErrors.phone}</p>
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p>
                 )}
               </div>
 
@@ -279,25 +261,29 @@ export default function AdminStaffManager({
                     name="password"
                     value={form.password}
                     onChange={handleInputChange}
-                    className="input input-bordered w-full"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                     disabled={submitting}
                   />
                   {fieldErrors.password && (
-                    <p className="mt-1 text-xs text-error">{fieldErrors.password}</p>
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p>
                   )}
                 </div>
               )}
 
-              <div className="modal-action">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  className="btn btn-ghost btn-sm"
+                  className="rounded-md px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                   onClick={closeModal}
                   disabled={submitting}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-dwellix-500 px-4 py-2 text-sm font-medium text-white hover:bg-dwellix-600 disabled:opacity-50"
+                  disabled={submitting}
+                >
                   {submitting ? "Saving..." : editingId === null ? "Create" : "Save changes"}
                 </button>
               </div>
@@ -306,23 +292,26 @@ export default function AdminStaffManager({
         </div>
       )}
 
-      {/* Delete confirmation modal */}
       {deleteTarget && (
-        <div className="modal modal-open">
-          <div className="modal-box max-w-sm">
-            <h3 className="text-lg font-bold">Delete staff member?</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg">
+            <h3 className="text-lg font-bold">Delete landlord?</h3>
             <p className="mt-2 text-sm text-gray-500">
               &quot;{deleteTarget.name}&quot; will be removed permanently.
             </p>
-            <div className="modal-action">
+            <div className="mt-4 flex justify-end gap-2">
               <button
-                className="btn btn-ghost btn-sm"
+                className="rounded-md px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                 onClick={() => setDeleteTarget(null)}
                 disabled={submitting}
               >
                 Cancel
               </button>
-              <button className="btn btn-error btn-sm" onClick={handleDelete} disabled={submitting}>
+              <button
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                onClick={handleDelete}
+                disabled={submitting}
+              >
                 {submitting ? "Deleting..." : "Delete"}
               </button>
             </div>
