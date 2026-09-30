@@ -1,38 +1,13 @@
 "use client";
 
-/* ============================================================
-   ADMIN TENANT MANAGER — components/admin/AdminTenantManager.tsx
-   ------------------------------------------------------------
-   Same course concepts as AdminLandlordManager (SSR + CSR
-   hybrid, useState, Zod schemas mirroring the backend DTOs,
-   axios + NEXT_PUBLIC_API_URL, DaisyUI modal).
-
-   Tenant-specific (CreateTenantDto):
-   name, email, phone, password (min 4), nid_number,
-   nid_document_url, has_vehicle (boolean checkbox).
-   UpdateTenantDto has no password.
-   ============================================================ */
-
 import { useState } from "react";
 import axios from "axios";
 import { z } from "zod";
 import { authHeader } from "@/lib/getToken";
 import AdminPeopleTable, { type AdminPeopleRow } from "./AdminPeopleTable";
 
-type Tenant = {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  nid_number: string;
-  has_vehicle: boolean;
-  status: string;
-  created_at: string;
-  property: { id: number; unit_number: string } | null;
-  approved_by: { id: number; name: string } | null;
-};
+type Tenant = { id: number; name: string; email: string; phone: string; nid_number: string; has_vehicle: boolean; status: string; created_at: string; property: { id: number; unit_number: string } | null; approved_by: { id: number; name: string } | null;};
 
-/* Zod schemas mirroring CreateTenantDto / UpdateTenantDto. */
 const createSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().min(1, "Email is required").email("Enter a valid email"),
@@ -42,21 +17,17 @@ const createSchema = z.object({
   nid_document_url: z
     .string()
     .min(1, "NID document URL is required")
-    .url("Enter a valid URL (https://...)"),
+    .url("Enter a valid URL)"),
   has_vehicle: z.boolean(),
 });
 
-/* Update schema: nid_document_url is OPTIONAL (matches
-   UpdateTenantDto). The list endpoint does not return the URL,
-   so on edit the field starts empty — if left empty it is
-   simply omitted from the PATCH payload ("" -> removed). */
 const updateSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().min(1, "Email is required").email("Enter a valid email"),
   phone: z.string().min(1, "Phone is required"),
   nid_number: z.string().min(1, "NID number is required"),
   nid_document_url: z
-    .union([z.literal(""), z.string().url("Enter a valid URL (https://...)")])
+    .union([z.literal(""), z.string().url("Enter a valid URL)")])
     .optional(),
   has_vehicle: z.boolean(),
 });
@@ -64,15 +35,7 @@ const updateSchema = z.object({
 type CreateForm = z.infer<typeof createSchema>;
 type FieldErrors = Partial<Record<keyof CreateForm, string>>;
 
-const EMPTY_CREATE: CreateForm = {
-  name: "",
-  email: "",
-  phone: "",
-  password: "",
-  nid_number: "",
-  nid_document_url: "",
-  has_vehicle: false,
-};
+const EMPTY_CREATE: CreateForm = { name: "", email: "", phone: "", password: "", nid_number: "", nid_document_url: "", has_vehicle: false,};
 
 export default function AdminTenantManager({
   initialTenants,
@@ -89,13 +52,11 @@ export default function AdminTenantManager({
   const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Tenant | null>(null);
 
-  // Controlled text inputs.
   function handleInputChange(event: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target;
     setForm((previous) => ({ ...previous, [name]: value }));
   }
 
-  // Separate handler for the has_vehicle checkbox (boolean).
   function handleVehicleChange(event: React.ChangeEvent<HTMLInputElement>) {
     setForm((previous) => ({ ...previous, has_vehicle: event.target.checked }));
   }
@@ -165,7 +126,6 @@ export default function AdminTenantManager({
         );
         setBanner("Tenant created successfully (status: PENDING until a landlord approves).");
       } else {
-        // UPDATE: omit nid_document_url when left empty
         const payload = { ...result.data };
         if (!payload.nid_document_url) {
           delete payload.nid_document_url;
@@ -233,14 +193,17 @@ export default function AdminTenantManager({
             Manage tenant accounts and property occupancy. {tenants.length} total.
           </p>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={openCreateModal}>
+        <button
+          className="rounded-md bg-dwellix-500 px-4 py-2 text-sm font-medium text-white hover:bg-dwellix-600"
+          onClick={openCreateModal}
+        >
           + Add Tenant
         </button>
       </div>
 
       {banner && (
-        <div className="alert border-base-300 bg-white shadow-sm">
-          <span className="text-sm text-success">{banner}</span>
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <span className="text-sm text-green-600">{banner}</span>
         </div>
       )}
 
@@ -258,10 +221,9 @@ export default function AdminTenantManager({
         }}
       />
 
-      {/* Add/Edit modal (Zod-validated) */}
       {modalOpen && (
-        <div className="modal modal-open">
-          <div className="modal-box max-w-lg">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-lg">
             <h3 className="text-lg font-bold">
               {editingId === null ? "Add Tenant" : "Edit Tenant"}
             </h3>
@@ -277,11 +239,11 @@ export default function AdminTenantManager({
                     name="name"
                     value={form.name}
                     onChange={handleInputChange}
-                    className="input input-bordered w-full"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                     disabled={submitting}
                   />
                   {fieldErrors.name && (
-                    <p className="mt-1 text-xs text-error">{fieldErrors.name}</p>
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.name}</p>
                   )}
                 </div>
 
@@ -294,11 +256,11 @@ export default function AdminTenantManager({
                     name="phone"
                     value={form.phone}
                     onChange={handleInputChange}
-                    className="input input-bordered w-full"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                     disabled={submitting}
                   />
                   {fieldErrors.phone && (
-                    <p className="mt-1 text-xs text-error">{fieldErrors.phone}</p>
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p>
                   )}
                 </div>
               </div>
@@ -312,11 +274,11 @@ export default function AdminTenantManager({
                   name="email"
                   value={form.email}
                   onChange={handleInputChange}
-                  className="input input-bordered w-full"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                   disabled={submitting}
                 />
                 {fieldErrors.email && (
-                  <p className="mt-1 text-xs text-error">{fieldErrors.email}</p>
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>
                 )}
               </div>
 
@@ -330,11 +292,11 @@ export default function AdminTenantManager({
                     name="password"
                     value={form.password}
                     onChange={handleInputChange}
-                    className="input input-bordered w-full"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                     disabled={submitting}
                   />
                   {fieldErrors.password && (
-                    <p className="mt-1 text-xs text-error">{fieldErrors.password}</p>
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p>
                   )}
                 </div>
               )}
@@ -349,11 +311,11 @@ export default function AdminTenantManager({
                     name="nid_number"
                     value={form.nid_number}
                     onChange={handleInputChange}
-                    className="input input-bordered w-full"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                     disabled={submitting}
                   />
                   {fieldErrors.nid_number && (
-                    <p className="mt-1 text-xs text-error">{fieldErrors.nid_number}</p>
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.nid_number}</p>
                   )}
                 </div>
 
@@ -367,20 +329,19 @@ export default function AdminTenantManager({
                     value={form.nid_document_url}
                     onChange={handleInputChange}
                     placeholder="https://example.com/nid.pdf"
-                    className="input input-bordered w-full"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                     disabled={submitting}
                   />
                   {fieldErrors.nid_document_url && (
-                    <p className="mt-1 text-xs text-error">{fieldErrors.nid_document_url}</p>
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.nid_document_url}</p>
                   )}
                 </div>
               </div>
 
-              {/* Boolean checkbox (has_vehicle) */}
-              <label className="label cursor-pointer justify-start gap-2">
+              <label className="flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
-                  className="checkbox checkbox-sm checkbox-primary"
+                  className="h-4 w-4 rounded border-gray-300 text-dwellix-500 focus:ring-dwellix-500"
                   checked={form.has_vehicle}
                   onChange={handleVehicleChange}
                   disabled={submitting}
@@ -390,16 +351,20 @@ export default function AdminTenantManager({
                 </span>
               </label>
 
-              <div className="modal-action">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  className="btn btn-ghost btn-sm"
+                  className="rounded-md px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                   onClick={closeModal}
                   disabled={submitting}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-dwellix-500 px-4 py-2 text-sm font-medium text-white hover:bg-dwellix-600 disabled:opacity-50"
+                  disabled={submitting}
+                >
                   {submitting ? "Saving..." : editingId === null ? "Create" : "Save changes"}
                 </button>
               </div>
@@ -408,23 +373,26 @@ export default function AdminTenantManager({
         </div>
       )}
 
-      {/* Delete confirmation modal */}
       {deleteTarget && (
-        <div className="modal modal-open">
-          <div className="modal-box max-w-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg">
             <h3 className="text-lg font-bold">Delete tenant?</h3>
             <p className="mt-2 text-sm text-gray-500">
               &quot;{deleteTarget.name}&quot; will be removed permanently.
             </p>
-            <div className="modal-action">
+            <div className="mt-4 flex justify-end gap-2">
               <button
-                className="btn btn-ghost btn-sm"
+                className="rounded-md px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                 onClick={() => setDeleteTarget(null)}
                 disabled={submitting}
               >
                 Cancel
               </button>
-              <button className="btn btn-error btn-sm" onClick={handleDelete} disabled={submitting}>
+              <button
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                onClick={handleDelete}
+                disabled={submitting}
+              >
                 {submitting ? "Deleting..." : "Delete"}
               </button>
             </div>

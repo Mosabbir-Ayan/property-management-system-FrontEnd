@@ -80,7 +80,7 @@ export default function LoginPage() {
 
       switch (response.data.user.account_type) {
         case "admin":
-          router.push("/");
+          router.push("/admin");
           break;
 
         case "staff":

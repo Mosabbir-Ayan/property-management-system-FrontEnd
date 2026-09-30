@@ -1,100 +1,36 @@
 "use client";
 
-/* ============================================================
-   ADMIN ANNOUNCEMENTS PAGE — app/admin/announcements/page.tsx
-   ------------------------------------------------------------
-   COURSE CONCEPTS DEMONSTRATED IN THIS FILE:
-
-   1. CLIENT-SIDE RENDERING (CSR) — course table:
-      "Admin panel -> CSR" and "Search page with filters -> CSR".
-      "use client" makes this a Client Component: it renders in
-      the browser, holds local UI state, and talks to the
-      backend AFTER the page has loaded. CSR is the right fit
-      here because this page is highly interactive (create /
-      edit / delete forms, modals, live list refresh) and all
-      of its data is private admin data that must never be
-      pre-rendered into public HTML.
-
-   2. REACT HOOKS:
-      - useState  -> every piece of UI state (list, modal,
-        form fields, errors, loading flags...)
-      - useEffect -> loads the announcement list from the
-        backend once when the page mounts ([] dependency).
-
-   3. ZOD VALIDATION (course: Zod.docx) — the create/edit form
-      is validated with a Zod schema via safeParse BEFORE any
-      request is sent. No vanilla JS validation and no HTML
-      form validation is used — errors come from Zod and are
-      shown under each field.
-
-   4. AXIOS (course: Axios.pptx) — axios is imported directly
-      and the backend URL comes from NEXT_PUBLIC_API_URL in
-      .env.local (course convention:
-      axios.post(process.env.NEXT_PUBLIC_API_URL + "/route")).
-      GET / POST / PATCH / DELETE are all covered, with the
-      admin's JWT attached from the cookie (lib/getToken.ts
-      authHeader). fetch() is never used.
-
-   5. DAISYUI — table, modal, btn, alert, textarea components.
-
-   6. FOLDER-BASED ROUTING — this file is
-      app/admin/announcements/page.tsx -> route /admin/announcements.
-   ============================================================ */
-
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import axios from "axios";
 import { authHeader } from "@/lib/getToken";
 
-// The shape of one announcement as returned by the backend.
-type Announcement = {
-  id: number;
-  title: string;
-  body: string;
-  created_at: string;
-  created_by: { id: number; name: string } | null;
-};
+type Announcement = { id: number; title: string; body: string; created_at: string; created_by: { id: number; name: string } | null;};
 
-/* ---- Zod schema for the announcement form (frontend validation) ----
-   Mirrors the backend DTO rules (title required, max 150 chars). */
 const announcementSchema = z.object({
-  title: z
-    .string()
-    .min(1, "Title is required")
-    .max(150, "Title must be at most 150 characters"),
-  body: z.string().min(1, "Body is required"),
-});
+  title: z.string().min(1, "Title is required").max(150, "Title must be at most 150 characters"), body: z.string().min(1, "Body is required"),});
 
 type AnnouncementForm = z.infer<typeof announcementSchema>;
 type FieldErrors = Partial<Record<keyof AnnouncementForm, string>>;
 
 export default function AdminAnnouncementsPage() {
-  // ----- list state (loaded with useEffect on mount) -----
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState("");
 
-  // ----- create/edit modal state -----
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<AnnouncementForm>({ title: "", body: "" });
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
-  // ----- delete confirmation state -----
   const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // ----- success banner state -----
   const [banner, setBanner] = useState("");
 
-  /* useEffect: fetch the list once when the page mounts.
-     This is the CSR data-loading pattern (browser -> backend). */
-  useEffect(() => {
-    fetchAnnouncements();
-  }, []);
+  useEffect(() => {fetchAnnouncements();}, []);
 
-  // Axios GET — loads all announcements (JWT protected route).
   async function fetchAnnouncements() {
     try {
       setLoadingList(true);
@@ -113,7 +49,6 @@ export default function AdminAnnouncementsPage() {
     }
   }
 
-  // Open the empty modal for creating a new announcement.
   function openCreateModal() {
     setEditingId(null);
     setForm({ title: "", body: "" });
@@ -121,7 +56,6 @@ export default function AdminAnnouncementsPage() {
     setModalOpen(true);
   }
 
-  // Open the modal pre-filled for editing an existing announcement.
   function openEditModal(announcement: Announcement) {
     setEditingId(announcement.id);
     setForm({ title: announcement.title, body: announcement.body });
@@ -135,20 +69,15 @@ export default function AdminAnnouncementsPage() {
     setFieldErrors({});
   }
 
-  // Controlled inputs: one handler updates the form state (useState).
   function handleInputChange(event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = event.target;
     setForm((previous) => ({ ...previous, [name]: value }));
   }
 
-  /* Form submit: Zod validates first (safeParse). If invalid we show
-     Zod's messages under the fields and never contact the backend.
-     If valid -> Axios POST (create) or PATCH (update). */
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBanner("");
 
-    // ---- Zod validation (no vanilla/HTML validation used) ----
     const result = announcementSchema.safeParse(form);
 
     if (!result.success) {
@@ -161,13 +90,12 @@ export default function AdminAnnouncementsPage() {
       return;
     }
 
-    // ---- validated -> send with Axios ----
     try {
       setSubmitting(true);
       setFieldErrors({});
 
       if (editingId === null) {
-        // CREATE
+
         await axios.post(
           process.env.NEXT_PUBLIC_API_URL + "/admin/announcement/create",
           result.data,
@@ -175,7 +103,7 @@ export default function AdminAnnouncementsPage() {
         );
         setBanner("Announcement published successfully.");
       } else {
-        // UPDATE
+
         await axios.patch(
           process.env.NEXT_PUBLIC_API_URL + `/admin/announcement/update/${editingId}`,
           result.data,
@@ -185,9 +113,8 @@ export default function AdminAnnouncementsPage() {
       }
 
       closeModal();
-      await fetchAnnouncements(); // refresh the list (CSR re-fetch)
+      await fetchAnnouncements();
 
-      // hide the success banner after a moment (browser-side UI state)
       setTimeout(() => setBanner(""), 4000);
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -214,7 +141,6 @@ export default function AdminAnnouncementsPage() {
     }
   }
 
-  // Axios DELETE after the confirmation modal is accepted.
   async function handleDelete() {
     if (!deleteTarget) return;
 
@@ -237,10 +163,8 @@ export default function AdminAnnouncementsPage() {
     }
   }
 
-  // ---- render (basic JSX) ------------------------------------
   return (
     <div className="space-y-6">
-      {/* Page header row with the create button (opens the modal) */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Announcements</h1>
@@ -248,82 +172,83 @@ export default function AdminAnnouncementsPage() {
             Publish important messages to your community. {announcements.length} total.
           </p>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={openCreateModal}>
+        <button
+          className="rounded-md bg-dwellix-500 px-4 py-2 text-sm font-medium text-white hover:bg-dwellix-600"
+          onClick={openCreateModal}
+        >
           + New Announcement
         </button>
       </div>
-
-      {/* Success banner (useState-driven) */}
       {banner && (
-        <div className="alert border-base-300 bg-white shadow-sm">
-          <span className="text-sm text-success">{banner}</span>
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <span className="text-sm text-green-600">{banner}</span>
         </div>
       )}
 
-      {/* List area: loading / error / table / empty state */}
       {loadingList ? (
-        <div className="card border border-base-300 bg-white shadow-sm">
-          <div className="card-body">
-            <div className="h-4 w-40 animate-pulse rounded bg-base-300" />
-            <div className="mt-3 h-4 w-full animate-pulse rounded bg-base-300" />
-            <div className="h-4 w-2/3 animate-pulse rounded bg-base-300" />
-          </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="h-4 w-40 animate-pulse rounded bg-gray-200" />
+          <div className="mt-3 h-4 w-full animate-pulse rounded bg-gray-200" />
+          <div className="mt-2 h-4 w-2/3 animate-pulse rounded bg-gray-200" />
         </div>
       ) : listError ? (
-        <div className="alert border-base-300 bg-white shadow-sm">
-          <span className="text-sm text-error">{listError}</span>
-          <button className="btn btn-xs" onClick={fetchAnnouncements}>
+        <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <span className="text-sm text-red-600">{listError}</span>
+          <button
+            className="rounded-md px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+            onClick={fetchAnnouncements}
+          >
             Retry
           </button>
         </div>
       ) : announcements.length === 0 ? (
-        <div className="card border border-base-300 bg-white shadow-sm">
-          <div className="card-body items-center text-center">
-            <p className="text-sm text-gray-500">No announcements published yet.</p>
-            <button className="btn btn-primary btn-sm" onClick={openCreateModal}>
-              Publish the first one
-            </button>
-          </div>
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
+          <p className="text-sm text-gray-500">No announcements published yet.</p>
+          <button
+            className="rounded-md bg-dwellix-500 px-4 py-2 text-sm font-medium text-white hover:bg-dwellix-600"
+            onClick={openCreateModal}
+          >
+            Publish the first one
+          </button>
         </div>
       ) : (
-        <div className="card border border-base-300 bg-white shadow-sm">
+        <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            {/* DaisyUI table */}
-            <table className="table">
+            <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="text-xs uppercase text-gray-500">
-                  <th>Title</th>
-                  <th>Message</th>
-                  <th>Published</th>
-                  <th className="text-right">Actions</th>
+                <tr className="border-b border-gray-200 text-xs uppercase text-gray-500">
+                  <th className="px-4 py-3 font-semibold">Title</th>
+                  <th className="px-4 py-3 font-semibold">Message</th>
+                  <th className="px-4 py-3 font-semibold">Published</th>
+                  <th className="px-4 py-3 text-right font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {announcements.map((announcement) => (
-                  <tr key={announcement.id}>
-                    <td className="font-semibold">{announcement.title}</td>
-                    <td className="max-w-sm">
+                  <tr key={announcement.id} className="border-b border-gray-100 last:border-0">
+                    <td className="px-4 py-3 font-semibold">{announcement.title}</td>
+                    <td className="max-w-sm px-4 py-3">
                       <p className="line-clamp-2 text-sm text-gray-500">
                         {announcement.body}
                       </p>
                     </td>
-                    <td className="text-xs text-gray-500">
+                    <td className="px-4 py-3 text-xs text-gray-500">
                       {new Date(announcement.created_at).toLocaleDateString()}
                       <br />
                       <span className="text-gray-400">
                         by {announcement.created_by?.name ?? "Admin"}
                       </span>
                     </td>
-                    <td className="text-right">
+                    <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         <button
-                          className="btn btn-ghost btn-xs"
+                          className="rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
                           onClick={() => openEditModal(announcement)}
                         >
                           Edit
                         </button>
                         <button
-                          className="btn btn-ghost btn-xs text-error"
+                          className="rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-gray-100"
                           onClick={() => setDeleteTarget(announcement)}
                         >
                           Delete
@@ -338,16 +263,13 @@ export default function AdminAnnouncementsPage() {
         </div>
       )}
 
-      {/* Create/Edit modal (DaisyUI modal, state-controlled) */}
       {modalOpen && (
-        <div className="modal modal-open">
-          <div className="modal-box">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
             <h3 className="text-lg font-bold">
               {editingId === null ? "New Announcement" : "Edit Announcement"}
             </h3>
 
-            {/* Zod-validated form (noValidate: validation is done by
-                Zod in handleSubmit, NOT by the browser) */}
             <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-4">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-gray-600">
@@ -359,11 +281,11 @@ export default function AdminAnnouncementsPage() {
                   value={form.title}
                   onChange={handleInputChange}
                   placeholder="e.g. Water supply maintenance on Friday"
-                  className="input input-bordered w-full"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                   disabled={submitting}
                 />
                 {fieldErrors.title && (
-                  <p className="mt-1 text-xs text-error">{fieldErrors.title}</p>
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.title}</p>
                 )}
               </div>
 
@@ -377,24 +299,28 @@ export default function AdminAnnouncementsPage() {
                   onChange={handleInputChange}
                   rows={5}
                   placeholder="Write the announcement details..."
-                  className="textarea textarea-bordered w-full"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-dwellix-500 focus:outline-none focus:ring-1 focus:ring-dwellix-500 disabled:bg-gray-100"
                   disabled={submitting}
                 />
                 {fieldErrors.body && (
-                  <p className="mt-1 text-xs text-error">{fieldErrors.body}</p>
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.body}</p>
                 )}
               </div>
 
-              <div className="modal-action">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  className="btn btn-ghost btn-sm"
+                  className="rounded-md px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                   onClick={closeModal}
                   disabled={submitting}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-dwellix-500 px-4 py-2 text-sm font-medium text-white hover:bg-dwellix-600 disabled:opacity-50"
+                  disabled={submitting}
+                >
                   {submitting
                     ? "Saving..."
                     : editingId === null
@@ -407,24 +333,23 @@ export default function AdminAnnouncementsPage() {
         </div>
       )}
 
-      {/* Delete confirmation modal */}
       {deleteTarget && (
-        <div className="modal modal-open">
-          <div className="modal-box max-w-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg">
             <h3 className="text-lg font-bold">Delete announcement?</h3>
             <p className="mt-2 text-sm text-gray-500">
               &quot;{deleteTarget.title}&quot; will be removed permanently.
             </p>
-            <div className="modal-action">
+            <div className="mt-4 flex justify-end gap-2">
               <button
-                className="btn btn-ghost btn-sm"
+                className="rounded-md px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
                 onClick={() => setDeleteTarget(null)}
                 disabled={deleting}
               >
                 Cancel
               </button>
               <button
-                className="btn btn-error btn-sm"
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
                 onClick={handleDelete}
                 disabled={deleting}
               >

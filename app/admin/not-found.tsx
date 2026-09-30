@@ -1,12 +1,5 @@
 import Link from "next/link";
 
-/* ============================================================
-   not-found.tsx — app/admin/not-found.tsx
-   ------------------------------------------------------------
-   Course requirement: "not-found" files.
-   Shown automatically when a URL inside /admin doesn't match
-   any route (or when a page calls the notFound() function).
-   ============================================================ */
 
 export default function AdminNotFound() {
   return (
