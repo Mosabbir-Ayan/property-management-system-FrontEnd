@@ -25,7 +25,9 @@ export async function getAdminSession(): Promise<AdminSession | null> {
     );
 
     if (!response.ok) {
-
+      console.error(
+        `getAdminSession: /admin/profile responded ${response.status} ${response.statusText}`,
+      );
       return null;
     }
 
@@ -40,7 +42,11 @@ export async function getAdminSession(): Promise<AdminSession | null> {
         account_type: "admin",
       },
     };
-  } catch {
+  } catch (error) {
+    console.error(
+      "getAdminSession: failed to reach backend:",
+      error instanceof Error ? error.message : error,
+    );
     return null;
   }
 }
